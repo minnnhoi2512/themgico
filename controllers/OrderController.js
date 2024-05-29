@@ -139,6 +139,7 @@ const findOrderById = async (id) => {
         const order = {
             id: result.recordset[0].id,
             numberguest: result.recordset[0].numberguest,
+            tablenumber: result.recordset[0].tablenumber,
             mode: result.recordset[0].mode,
             orderdate: result.recordset[0].orderdate,
             status: result.recordset[0].status,
@@ -222,6 +223,7 @@ const getListOrder = async (req, res, next) => {
         // Combine orders with their details
         const orders = ordersResult.recordset.map(order => ({
             idOrder: order.id,
+            tablenumber: order.tablenumber,
             numberguest: order.numberguest,
             mode: order.mode,
             orderdate: order.orderdate,

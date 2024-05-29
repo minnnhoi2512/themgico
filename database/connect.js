@@ -9,7 +9,7 @@ const connect = async () => {
 
     try {
         await connectAsync();
-        // console.log('Connected to SQL Server successfully');
+        console.log('Access SQL Server successfully');
         return connectionPool;
     } catch (error) {
         console.error('Error connecting to SQL Server:', error.message);

@@ -51,6 +51,14 @@ const createPayment = async (req, res, next) => {
                 OUTPUT INSERTED.id
                 VALUES (@orderID, @paymentMethod, @amount, @phone, @paymentDate, @status)
             `);
+            // console.log(order);
+        await pool.request()
+            .input('tablenumber', order.tablenumber)
+            .query(`
+        UPDATE [Themgico].[dbo].[Tables]
+        SET STATUS = 1
+        WHERE tablenumber = @tablenumber
+    `);
 
         const paymentID = result.recordset[0].id;
         // console.log(paymentID);
@@ -65,7 +73,7 @@ const createPayment = async (req, res, next) => {
         };
 
         const paymentLinkRes = await payOS.createPaymentLink(body);
-        return res.status(201).json({ message: "Payment created successfully", paymentInformation: paymentLinkRes, item : items });
+        return res.status(201).json({ message: "Payment created successfully", paymentInformation: paymentLinkRes, item: items });
     } catch (error) {
         console.error('Error creating payment', error);
         return res.status(500).json({ message: "Internal server error" });
@@ -100,7 +108,6 @@ const getListPayment = async (req, res, next) => {
         return res.status(200).json({
             currentPage: page,
             totalPages: totalPages,
-            totalItems: total,
             listPayments: result.recordset
         });
     } catch (error) {
@@ -219,4 +226,4 @@ const cancelPayment = async (req, res, next) => {
         pool.close();
     }
 };
-module.exports = { createPayment, getListPayment, payPayment ,cancelPayment};
+module.exports = { createPayment, getListPayment, payPayment, cancelPayment };
