@@ -99,6 +99,34 @@ const updateOrder = async ({ orderID, mode, status, total }) => {
                 SET mode = @mode, status = @status, Total = @total
                 WHERE id = @orderID
             `);
+        return 1;        // console.log('Order updated successfully');
+    } catch (error) {
+        console.error('Error updating order', error);
+        throw error;
+    } finally {
+        pool.close();
+    }
+};
+const updateOrderTotal = async ({ orderID, total }) => {
+    const pool = await connect();
+    try {
+        // Ensure the order exists before attempting to update it
+        const orderResult = await pool.request()
+            .input('orderID', orderID)
+            .query('SELECT * FROM Orders WHERE id = @orderID');
+
+        if (orderResult.recordset.length === 0) {
+            throw new Error('Order not found');
+        }
+        // Update the order with the new values
+        await pool.request()
+            .input('orderID', orderID)
+            .input('total', total)
+            .query(`
+                UPDATE Orders
+                SET Total = @total
+                WHERE id = @orderID
+            `);
         return 1;
         // console.log('Order updated successfully');
     } catch (error) {
@@ -185,7 +213,7 @@ const getListOrder = async (req, res, next) => {
             .input('offset', offset)
             .query(`
                 SELECT * FROM Orders
-                ORDER BY id
+                ORDER BY orderdate DESC
                 OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
             `);
 
@@ -252,4 +280,4 @@ const getListOrder = async (req, res, next) => {
         pool.close();
     }
 };
-module.exports = { initOrder, updateOrder, updateMode, findOrderById, getOrderById, getListOrder };
+module.exports = { initOrder, updateOrder, updateMode, findOrderById, getOrderById, getListOrder ,updateOrderTotal};

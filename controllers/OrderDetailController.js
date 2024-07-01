@@ -32,9 +32,9 @@ const createOrderDetail = async (req, res, next) => {
                 .input('status', 'In Service')
                 .input('orderTime', orderTime)
                 .query(`
-                    INSERT INTO OrderDetails (orderID, productID, quantity, status, orderTime)
-                    VALUES (@orderID, @productID, @quantity, @status, @orderTime)
-                `);
+                            INSERT INTO OrderDetails (orderID, productID, quantity, status, orderTime)
+                            VALUES (@orderID, @productID, @quantity, @status, @orderTime)
+                        `);
 
             await OrderController.updateOrder({ orderID: orderID, status: "In Service", total: product.price * guest });
 
@@ -52,25 +52,28 @@ const createOrderDetail = async (req, res, next) => {
                 .input('orderID', orderID)
                 .input('productID', productID)
                 .query(`
-                    SELECT * FROM OrderDetails
-                    WHERE orderID = @orderID AND productID = @productID
-                `);
+                            SELECT * FROM OrderDetails
+                            WHERE orderID = @orderID AND productID = @productID
+                        `);
 
             if (orderDetailResult.recordset.length > 0) {
                 // Order detail exists, update quantity and total
                 const existingOrderDetail = orderDetailResult.recordset[0];
+                // console.log(JSON.stringify(existingOrderDetail, 2, null));
+                // console.log(JSON.stringify(existingOrderDetail.quantity))
+                // console.log(JSON.stringify(quantity));
                 const newQuantity = existingOrderDetail.quantity + quantity;
-                const newTotal = price * newQuantity;
+                const newTotal = price * quantity;
 
                 await pool.request()
                     .input('orderID', orderID)
                     .input('productID', productID)
                     .input('quantity', newQuantity)
                     .query(`
-                        UPDATE OrderDetails
-                        SET quantity = @quantity
-                        WHERE orderID = @orderID AND productID = @productID
-                    `);
+                                UPDATE OrderDetails
+                                SET quantity = @quantity
+                                WHERE orderID = @orderID AND productID = @productID
+                            `);
 
                 await OrderController.updateOrder({ orderID: orderID, status: "In Service", total: newTotal });
 
@@ -84,9 +87,9 @@ const createOrderDetail = async (req, res, next) => {
                     .input('status', 'Preparing')
                     .input('orderTime', orderTime)
                     .query(`
-                        INSERT INTO OrderDetails (orderID, productID, quantity, status, orderTime)
-                        VALUES (@orderID, @productID, @quantity, @status, @orderTime)
-                    `);
+                                INSERT INTO OrderDetails (orderID, productID, quantity, status, orderTime)
+                                VALUES (@orderID, @productID, @quantity, @status, @orderTime)
+                            `);
 
                 await OrderController.updateOrder({ orderID: orderID, status: "In Service", total: total });
 
@@ -102,6 +105,101 @@ const createOrderDetail = async (req, res, next) => {
         pool.close();
     }
 };
+const updateOrderDetail = async (req, res, next) => {
+    const { quantity } = req.body;
+    const { id } = req.params;
+   
+    const pool = await connect();
 
+    try {
+        const orderDetailResult = await pool.request()
+            .input('id', id)
+            .query(`
+                      SELECT OD.*, P.price
+FROM OrderDetails OD
+JOIN Products P ON OD.productID = P.id
+WHERE OD.id = @id;
+                    `);
 
-module.exports = { createOrderDetail };
+        if (orderDetailResult.recordset.length === 0) {
+            return res.status(404).json({ message: "Order detail not found" });
+        }
+        // console.log(orderDetailResult.recordset[0]);
+        const existingOrderDetail = orderDetailResult.recordset[0];
+        const newQuantity = quantity || existingOrderDetail.quantity; // Use provided quantity or keep existing
+    
+        await pool.request()
+            .input('id', id)
+            .input('quantity', newQuantity)
+            .query(`
+                        UPDATE OrderDetails
+                        SET quantity = @quantity
+                        WHERE id = @id
+                    `);
+        const order = await OrderController.findOrderById(existingOrderDetail.orderID)
+        // Iterate through each order detail
+       
+        let newTotal = 0;
+        for (let i = 0; i < order.orderDetails.length; i++) {
+            let detail = order.orderDetails[i];
+            newTotal += detail.price * detail.quantity;
+        }
+
+        await OrderController.updateOrderTotal({ orderID: existingOrderDetail.orderID, total: newTotal });
+
+        return res.status(200).json({ message: "Order detail updated successfully" });
+    } catch (error) {
+        console.error('Error updating order detail', error);
+        return res.status(500).json({ message: "Internal server error" });
+    } finally {
+        pool.close();
+    }
+};
+const deleteOrderDetail = async (req, res, next) => {
+    const { id } = req.params;
+    const pool = await connect();
+
+    try {
+        const orderDetailResult = await pool.request()
+            .input('id', id)
+            .query(`
+                SELECT *
+                FROM OrderDetails
+                WHERE id = @id;
+            `);
+
+        if (orderDetailResult.recordset.length === 0) {
+            return res.status(404).json({ message: "Order detail not found" });
+        }
+
+        const existingOrderDetail = orderDetailResult.recordset[0];
+
+        await pool.request()
+            .input('id', id)
+            .query(`
+                DELETE FROM OrderDetails
+                WHERE id = @id;
+            `);
+
+        const order = await OrderController.findOrderById(existingOrderDetail.orderID);
+
+        // Calculate new total for the order after deletion
+        let newTotal = 0;
+        for (let i = 0; i < order.orderDetails.length; i++) {
+            const detail = order.orderDetails[i];
+            newTotal += detail.price * detail.quantity;
+        }
+
+        // Update the total for the order using OrderController
+        await OrderController.updateOrderTotal({ orderID: existingOrderDetail.orderID, total: newTotal });
+
+        return res.status(200).json({ message: "Order detail deleted successfully" });
+    } catch (error) {
+        console.error('Error deleting order detail', error);
+        return res.status(500).json({ message: "Internal server error" });
+    } finally {
+        pool.close();
+    }
+};
+
+module.exports = { createOrderDetail, updateOrderDetail, deleteOrderDetail };

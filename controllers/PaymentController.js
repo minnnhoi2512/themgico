@@ -64,12 +64,13 @@ const createPayment = async (req, res, next) => {
         // console.log(paymentID);
 
         const body = {
-            orderCode: paymentID,
+            orderCode: paymentID + 1000,
             amount: amount,
             description: "Thanh toan don hang",
             items: items, // Use the dynamically constructed items array
-            cancelUrl: 'http://localhost:3000/cancel.html',
-            returnUrl: 'http://localhost:3000/success.html'
+            cancelUrl: 'https://themgico.nguyenminhhai.us/staff/status-failure-payment',
+            // http://localhost:5173/staff/status-failure-payment
+            returnUrl: 'https://themgico.nguyenminhhai.us/staff/status-success-payment'
         };
 
         const paymentLinkRes = await payOS.createPaymentLink(body);
@@ -94,7 +95,7 @@ const getListPayment = async (req, res, next) => {
             .input('offset', offset)
             .query(`
                 SELECT * FROM Payment
-                ORDER BY id
+                ORDER BY paymentDate DESC
                 OFFSET @offset ROWS
                 FETCH NEXT @limit ROWS ONLY
             `);
